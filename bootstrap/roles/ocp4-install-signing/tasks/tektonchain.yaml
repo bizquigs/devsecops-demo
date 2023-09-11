@@ -19,23 +19,29 @@
     definition: "{{ lookup('template', item ) | from_yaml }}"
   loop:
   - ./templates/tektonchain-cr.yaml.j2
-  when: tekton_install_type != "manifest"
+  when: tekton_install_type == "obsolete"
 
-- name: Apply TektonChain Controller SCC
+# Tekton install no-op because we now get it by default
+- name: Install Tekton Chains Just Kidding
   shell: |
-    oc project {{ tekton_operator_namespace }} && oc adm policy add-scc-to-user nonroot -z tekton-chains-controller
+    echo "Do not install - NOOP"
+  when: tekton_install_type == "nope"
+
+#- name: Apply TektonChain Controller SCC
+#  shell: |
+#    oc project {{ tekton_operator_namespace }} && oc adm policy add-scc-to-user nonroot -z tekton-chains-controller
 
 # Wait Until TektonChain Controller Pod Is Ready
-- name: Get TektonChain Pod
-  kubernetes.core.k8s_info:
-    kind: Pod
-    api_version: v1
-    namespace: "{{ tekton_operator_namespace }}"
-    label_selectors:
-     - app = tekton-chains-controller
-    wait: yes
-  retries: 3
-  delay: 20
+#- name: Get TektonChain Pod
+#  kubernetes.core.k8s_info:
+#    kind: Pod
+#    api_version: v1
+#    namespace: "{{ tekton_operator_namespace }}"
+#    label_selectors:
+#     - app = tekton-chains-controller
+#    wait: yes
+#  retries: 3
+#  delay: 20
 
 # - name: Check if Cosign Signing Secret Already Exists in Operator Namespace
 #   k8s_info:
@@ -44,14 +50,14 @@
 #       namespace: "{{ tekton_operator_namespace }}"
 #   register: secret_check_status_operator
 
-- name: Delete Cosign Secret if exists
-  kubernetes.core.k8s:
-    state: absent
-    api_version: v1
-    kind: Secret
-    namespace: "{{ tekton_operator_namespace }}"
-    name: "{{ secret_generate_name }}"
-    wait: yes
+#- name: Delete Cosign Secret if exists
+#  kubernetes.core.k8s:
+#    state: absent
+#    api_version: v1
+#    kind: Secret
+#    namespace: "{{ tekton_operator_namespace }}"
+#    name: "{{ secret_generate_name }}"
+#    wait: yes
 
 - name: Check if Cosign Signing Secret Already Exists in Pipeline Namespace
   k8s_info:
@@ -64,11 +70,11 @@
   ansible.builtin.debug:
     msg: "{{ secret_check_status_pipeline.resources }}"
 
-- name: Copy Secret from Pipeline Namespace if it Exists
-  ansible.builtin.shell: |
-    oc get secret {{ secret_generate_name }} -n {{ pipeline_namespace }} -o json | jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.selfLink,.metadata.managedFields,.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration") | .metadata.creationTimestamp=null | .metadata.name="{{ secret_generate_name }}"'| oc apply -n {{ tekton_operator_namespace }} -f -
-  when: 
-  - secret_check_status_pipeline.resources | default([]) | length>0
+#- name: Copy Secret from Pipeline Namespace if it Exists
+#  ansible.builtin.shell: |
+#    oc get secret {{ secret_generate_name }} -n {{ pipeline_namespace }} -o json | jq 'del(.metadata.namespace,.metadata.resourceVersion,.metadata.uid,.metadata.selfLink,.metadata.managedFields,.metadata.annotations."kubectl.kubernetes.io/last-applied-configuration") | .metadata.creationTimestamp=null | .metadata.name="{{ secret_generate_name }}"'| oc apply -n {{ tekton_operator_namespace }} -f -
+#  when: 
+#  - secret_check_status_pipeline.resources | default([]) | length>0
 
 - name: Create Cosign Secret
   shell: |
@@ -85,10 +91,10 @@
     name: "{{ secret_generate_name }}"
     wait: yes
 
-- name: Patch the CM of Openshift Piplines to enable Tekton Chains
-  command: oc patch configmap chains-config -n {{ tekton_operator_namespace }} -p='{"data":{'\"{{ item.key }}\"':'\"{{ item.value }}\"'}}'
-  loop: "{{ tekton_chain_keys | dict2items }}"
+#- name: Patch the CM of Openshift Piplines to enable Tekton Chains
+#  command: oc patch configmap chains-config -n {{ tekton_operator_namespace }} -p='{"data":{'\"{{ item.key }}\"':'\"{{ item.value }}\"'}}'
+#  loop: "{{ tekton_chain_keys | dict2items }}"
 
-- name: Recreate Tekton Chain Controller
-  shell: |
-    oc delete po -l app=tekton-chains-controller -n "{{ tekton_operator_namespace }}"
+#- name: Recreate Tekton Chain Controller
+#  shell: |
+#    oc delete po -l app=tekton-chains-controller -n "{{ tekton_operator_namespace }}"
